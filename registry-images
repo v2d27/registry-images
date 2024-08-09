@@ -1,0 +1,48 @@
+#!/bin/bash
+#title           :registry-images
+#description     :This script will make a header for a bash script.
+#author          :Hercules
+#date            :20240809
+#version         :1.0
+#usage           :registry-images <domain>:<port>
+#notes           :<Port> is optional
+#bash_version    :4.1.5-release
+#===============================================================================
+
+
+
+
+SERVER_DOMAIN=$1
+result=''
+count=0
+
+main () {
+
+        if [[ -z "$SERVER_DOMAIN" ]]; then
+                echo "Usage: registry-images <domain>:<port>"
+                echo "   Ex: - registry-images 192.168.1.10:5000"
+                echo "       - registry-images 192.168.1.10"
+                echo "       - registry-images registry.dockerserver.tech:5000"
+                return 0
+        fi
+
+        catalog=$(curl -k -s  https://$SERVER_DOMAIN/v2/_catalog?n=1000 | grep -oP '"(.+?)"' | tr -d '"' | tail -n +2)
+
+        while IFS= read -r name; do
+                #echo "name: $name"
+                tagslist=$(curl -s -k https://$SERVER_DOMAIN/v2/$name/tags/list | grep -oP '\[(.+?)\]' | grep -oP '"(.+?)"' | tr -d '"' )
+                while IFS= read -r version; do
+                        #echo "version: $version"
+                        if [[ -n "$version" ]]; then
+                                result+="$name:$version\n"
+                                count=$((++count))
+                        fi
+                done <<< "$tagslist"
+        done <<< "$catalog"
+
+
+        printf "Showing %d image(s) avaiable on Docker Registry server: %s\n" "$count" "$SERVER_DOMAIN"
+        printf "%b\n" "$result"
+
+}
+main
